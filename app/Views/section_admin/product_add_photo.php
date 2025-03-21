@@ -23,7 +23,7 @@ Add Product Photo
     </div>
 
 
-    <?= form_open_multipart('upload/upload', ['id' => 'upload-form', 'class' =>
+    <?= form_open_multipart('/admin/product/additional_photo', ['id' => 'formData', 'class' =>
     'pristine-validate']) ?>
     <div class="form-group d-flex flex-column gap-4">
 
@@ -46,7 +46,6 @@ Add Product Photo
       <div id="image-preview-container" style="display:none;"></div>
 
     </div>
-
     <button type="submit" class="my-4 custom-primary btn">Upload</button>
   </div>
 </div>
@@ -56,25 +55,21 @@ Add Product Photo
 <?= $this->section('scripts') ?>
 <script>
   document.addEventListener("DOMContentLoaded", function() {
-    var form = document.getElementById("upload-form");
-    var pristine = new Pristine(form);
+    var form = document.getElementById("formData");
     var fileInput = document.getElementById('userfile');
     var fileTypeError = document.getElementById('file-type-error');
     var fileSizeError = document.getElementById('file-size-error');
     var imagePreviewContainer = document.getElementById('image-preview-container');
-    var maxSize = 5 * 1024 * 1024; //5mb in binary terms
-
-    // Allowed image types
+    var maxSize = 5 * 1024 * 1024;
     var allowedExtensions = ['.jpeg', '.jpg', '.png', '.webp'];
 
-    pristine.addValidator(fileInput, function(value) {
-
+    fileInput.addEventListener('change', function() {
       fileTypeError.style.display = 'none';
       fileSizeError.style.display = 'none';
-      imagePreviewContainer.style.display = 'none'; // Hide the preview initially
+      imagePreviewContainer.style.display = 'none';
 
       if (fileInput.files.length === 0) {
-        return true; // No file selected
+        return;
       }
 
       var file = fileInput.files[0]; // Get the first file
@@ -85,54 +80,40 @@ Add Product Photo
 
       if (!validExtension) {
         fileTypeError.style.display = 'block';
-        fileTypeError.style.color = 'red';
-        fileTypeError.style.fontSize = '12px';
-        fileTypeError.style.fontWeight = 'bold';
-        return false;
+        fileSizeError.style.display = 'none';
+        return;
       }
 
       if (file.size > maxSize) {
         fileSizeError.style.display = 'block';
-        fileSizeError.style.color = 'red';
-        fileSizeError.style.fontSize = '12px';
-        fileSizeError.style.fontWeight = 'bold';
-        return false;
+        fileTypeError.style.display = 'none';
+        return;
       }
 
       var reader = new FileReader();
 
       reader.onload = function(e) {
-        // Create an img element to preview the image
         var img = document.createElement('img');
         img.src = e.target.result;
-        img.style.width = "auto"; // Adjust width as needed
-        img.style.height = "auto"; // Maintain aspect ratio
-        imagePreviewContainer.innerHTML = ""; // Clear previous preview if any
-        imagePreviewContainer.appendChild(img); // Append the image for preview
-        imagePreviewContainer.style.display = 'block'; // Show the preview
+        img.style.width = "auto";
+        img.style.height = "250px";
+        imagePreviewContainer.innerHTML = "";
+        imagePreviewContainer.appendChild(img);
+        imagePreviewContainer.style.display = 'block';
       }
 
-      reader.readAsDataURL(file); // Read the file as a Data URL for the image
+      reader.readAsDataURL(file);
+    });
 
-      return true;
-
-    }, "Invalid file.", 5, false);
-
+    var pristine = new Pristine(form);
     form.addEventListener('submit', function(e) {
       var valid = pristine.validate();
 
       if (!valid) {
-        e.preventDefault(); // Prevent form submission if invalid
+        e.preventDefault();
       }
     });
-
-    fileInput.addEventListener('change', function() {
-      fileTypeError.style.display = 'none';
-      fileSizeError.style.display = 'none';
-
-      pristine.validate(fileInput); // Validate when file is selected
-    });
-
   });
+</script>
 </script>
 <?= $this->endSection() ?>

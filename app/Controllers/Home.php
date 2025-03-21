@@ -94,41 +94,54 @@ class Home extends BaseController
             }
         }
 
-        $newName = $userfile->getRandomName();
+
+        // $nowTime = new Time();
+        // $dateString = $nowTime->toDateString();
+        // $timeString = $nowTime->toTimeString();
+        // $dateStringWithoutSpecialChar = str_replace("-", "", $dateString);
+        // $timeStringWithoutSpecialChar = str_replace(":", "", $timeString);
+
+        $newName = $userfile->getName();
 
 
-        $nowTime = new Time();
-        $dateString = $nowTime->toDateString();
-        $timeString = $nowTime->toTimeString();
-        $dateStringWithoutSpecialChar = str_replace("-", "", $dateString);
-        $timeStringWithoutSpecialChar = str_replace(":", "", $timeString);
+        $uploadPathOriginal_NW = 'uploads/original/';
+        $uploadPathMedium_NW = 'uploads/medium/';
+        $uploadPathThumbnail_NW = 'uploads/thumbnail/';
 
+        $uploadPathOriginal = WRITEPATH .  $uploadPathOriginal_NW;
+        $uploadPathMedium = WRITEPATH . $uploadPathMedium_NW;
+        $uploadPathThumbnail = WRITEPATH . $uploadPathThumbnail_NW;
 
-        //$userfile->move(WRITEPATH . 'uploads', $newName);
-        //$filepath = WRITEPATH . 'uploads/original' . $newName;
-
-        $image = service('image');
-        $uploadPath = WRITEPATH . 'uploads/' . $product_id . '/';
-        $uploadPathOriginal = $uploadPath . 'original/';
-        $uploadPathMedium = $uploadPath . 'medium/';
-        $uploadPathThumbnail = $uploadPath . 'thumbnail/';
-        if (!is_dir($uploadPath)) {
-            mkdir($uploadPath, 0777, true);
+        if (!is_dir($uploadPathOriginal)) {
             mkdir($uploadPathOriginal, 0777, true);
+        }
+        if (!is_dir($uploadPathMedium)) {
             mkdir($uploadPathMedium, 0777, true);
+        }
+        if (!is_dir($uploadPathThumbnail)) {
             mkdir($uploadPathThumbnail, 0777, true);
         }
 
-        // $image->withFile($userfile)
-        //     ->fit(100, 100, 'center')
-        //     ->save(WRITEPATH . 'uploads/thumbnail/' . 'thumbnail_' . $newName);
+        $uploadPathOriginal_ID = $uploadPathOriginal  . $product_id . '/';
+        $uploadPathMedium_ID = $uploadPathMedium . $product_id . '/';
+        $uploadPathThumbnail_ID = $uploadPathThumbnail . $product_id . '/';
 
-        $newProductImage = new ProductImage();
-        $newProductImage->product_id = $product_id;
+        if (!is_dir($uploadPathOriginal_ID)) {
+            mkdir($uploadPathOriginal_ID, 0777, true);
+        }
+        if (!is_dir($uploadPathMedium_ID)) {
+            mkdir($uploadPathMedium_ID, 0777, true);
+        }
+        if (!is_dir($uploadPathThumbnail_ID)) {
+            mkdir($uploadPathThumbnail_ID, 0777, true);
+        }
+
+        $image = service('image');
+
 
         $initialImageData = $this->modelProductImage->where('product_id', $product_id)->first();
-
         $imageFile = $image->withFile($userfile);
+
         //save to original
         $imageFile->quality(80); // Set quality to 80%
         $imageFile->text(
@@ -142,12 +155,15 @@ class Home extends BaseController
                 'fontSize'  => 60,
             ]
         );
-        $imageFile->save($uploadPathOriginal . '/' . 'original_' . $newName);
+        $imageFile->save($uploadPathOriginal_ID . $newName);
+
+        $newProductImage = new ProductImage();
+        $newProductImage->product_id = $product_id;
 
         $updateProductImageInitial = [
             'product_image_id' => $initialImageData->product_image_id,
             'product_id' => $initialImageData->product_id,
-            'image_path' => $uploadPathOriginal . 'original_' . $newName,
+            'image_path' => $uploadPathOriginal_NW . $product_id . '/' . $newName,
             'is_primary' => true,
         ];
 
@@ -155,13 +171,13 @@ class Home extends BaseController
 
         //save to thumbnail
         $imageFile->resize(150, 150);
-        $imageFile->save($uploadPathThumbnail . '/' . 'thumbnail_' . $newName);
+        $imageFile->save($uploadPathThumbnail_ID  . $newName);
         $newProductImage->is_primary = false;
-        $newProductImage->image_path = $uploadPathThumbnail . 'thumbnail_' . $newName;
+        $newProductImage->image_path = $uploadPathThumbnail_NW . $product_id . '/' .  $newName;
         $this->modelProductImage->save($newProductImage);
 
+
         //save to medium
-        $imageFile->resize(500, 500);
         $imageFile->text(
             'Copyright 2025 Online Food Ordering System',
             [
@@ -173,39 +189,11 @@ class Home extends BaseController
                 'fontSize'  => 12,
             ]
         );
-        $imageFile->save($uploadPathMedium . '/' . 'medium_' . $newName);
+        $imageFile->resize(500, 500);
+        $imageFile->save($uploadPathMedium_ID . $newName);
         $newProductImage->is_primary = false;
-        $newProductImage->image_path = $uploadPathMedium . 'medium_' . $newName;
+        $newProductImage->image_path = $uploadPathMedium_NW . $product_id . '/' . $newName;
         $this->modelProductImage->save($newProductImage);
-
-        // $image->withFile($userfile)
-        //     ->resize(300, 300, true, 'height')
-        //     ->text(
-        //         'Copyright 2020 My Photo Co',
-        //         [
-        //             'color'     => '#fff',
-        //             'opacity'   => 0.5,
-        //             'withShadow'   => true,
-        //             'hAlign'    => 'center',
-        //             'vAlign'    => 'botton',
-        //             'fontSize'  => 20,
-        //         ]
-        //     )
-        //     ->save(WRITEPATH . 'uploads/watermark/' .  'wm_' . $newName);
-
-        //$studentData = $this->modelStudent->where('user_id', user_id())->first();
-
-        //$fileName = $studentData->student_id . '_' . $dateStringWithoutSpecialChar . '_' . $timeStringWithoutSpecialChar .  '.pdf';
-
-        //$userfile->move(WRITEPATH . 'uploads/original', $fileName);
-        //$filepath = WRITEPATH . 'uploads' . DIRECTORY_SEPARATOR . 'original' . DIRECTORY_SEPARATOR . $fileName;
-
-        // if (user_id()) {
-        //     $studentData->diploma_path = $fileName;
-        //     $this->modelStudent->save($studentData);
-        // }
-
-        // $data = ['uploaded_fileinfo' => new File($filepath)];
 
         return view(
             'uploads/success_page',

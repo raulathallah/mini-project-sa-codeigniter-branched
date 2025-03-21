@@ -41,7 +41,7 @@ class Product extends BaseController
             'categories' => $this->request->getGet('categories'),
             'sort' => $this->request->getGet('sort'),
             'order' => $this->request->getGet('order'),
-            'page' => $this->request->getGet('page_users'),
+            'page' => $this->request->getGet('page_products'),
             'perPage' => $this->request->getGet('perPage')
         ]);
 
@@ -79,7 +79,8 @@ class Product extends BaseController
                 'type' => 'Create',
                 'product' => $new,
                 'categories' => $categories,
-                'action' => 'create'
+                'action' => 'create',
+                'errors' => []
             ]
         );
     }
@@ -99,22 +100,21 @@ class Product extends BaseController
         );
     }
 
+
     public function create()
     {
 
-        $allUser = $this->db->table('users')
-            ->select('users.*, auth_groups.name as group_name')
+        $userNotCustomer = $this->db->table('users')
+            ->select('users.email')
             ->join('auth_groups_users', 'users.id = auth_groups_users.user_id', 'left')
             ->join('auth_groups', 'auth_groups.id = auth_groups_users.group_id', 'left')
+            ->whereIn('name', ['administrator', 'product_manager'])
             ->get()
             ->getResult();
 
         $userToEmail = [];
-
-        foreach ($allUser as $user) {
-            if ($user->group_name != 'customer' && $user->email != user()->email) {
-                array_push($userToEmail, $user->email);
-            }
+        foreach ($userNotCustomer as $row) {
+            array_push($userToEmail, $row->email);
         }
 
         //data product
@@ -133,31 +133,44 @@ class Product extends BaseController
             return redirect()->to('/admin/product/on_create');
         }
 
-        $pi = new ProductImage();
-        $pi->product_id = $this->modelProduct->getInsertID();
-        $pi->image_path = 'images/placeholder.jpg';
-        $pi->is_primary = true;
-        $saveProductImage = $this->modelProductImage->save($pi);
+        $userfile = $this->request->getFile('userfile');
+        $product_id = $this->modelProduct->getInsertID();
+        $newName = $userfile->getName();
 
-        if ($saveProductImage == false) {
-            return redirect()->back()
-                ->with('errors', $this->modelProductImage->errors())
-                ->withInput();
-            return redirect()->to('/admin/product/on_create');
+        $upload = $this->uploadProductPhoto($product_id, $userfile, $newName, 'create');
+
+
+        if ($upload) {
+            $new = new EntitiesProduct();
+            $categories = $this->modelCategory->findAll();
+            $this->modelProduct->delete($this->modelProduct->getInsertID());
+            return view('section_admin/product_form', [
+                'errors' => $upload,
+                'type' => 'Create',
+                'product' => $new,
+                'categories' => $categories,
+                'action' => 'create',
+            ]);
         }
 
+        //email
         $email = service('email');
-        $email->setTo($userToEmail);
+        $email->setTo(user()->email);
+        $email->setCc($userToEmail);
         $email->setSubject('New Product Added');
+
+        $file_path = WRITEPATH . 'uploads/original/' . $product_id . '/' . $newName;
+        $email->attach($file_path, 'inline', 'product_image.jpg', 'image/jpeg');
+
         $dataEmail = [
             'title' => 'New Product Information',
             'productId' => $this->modelProduct->getInsertID(),
             'productName' => $data->name,
             'productDesc' => $data->description,
-            'productPrice' => $data->price,
-            'link' => '',
+            'productPrice' => $data->getFormattedPrice(),
+            'link' => base_url('/admin/product/detail/' . $this->modelProduct->getInsertID()),
         ];
-        $message = view('email', $dataEmail); // Isi konten email
+        $message = view('emails/email_product', $dataEmail); // Isi konten email
         $email->setMessage($message);
 
         if ($email->send()) {
@@ -166,10 +179,155 @@ class Product extends BaseController
         } else {
 
             $data = ['error' => $email->printDebugger()];
-
             //$this->modelEnrollment->delete($this->modelEnrollment->getInsertID());
             return view('product_list');
         }
+    }
+
+    public function uploadProductPhoto($product_id, $userfile, $newName, $flag)
+    {
+        if (!$userfile->isValid()) {
+            return view('section_admin/product_form', [
+
+                'error' => $userfile->getErrorString()
+
+            ]);
+        }
+
+        $validationRulesImage = [
+            'userfile' => [
+                'label' => 'Gambar',
+                'rules' => [
+                    'uploaded[userfile]',
+                    'is_image[userfile]',
+                    'mime_in[userfile,image/jpg,image/jpeg,image/png,image/webp]',
+                    'max_size[userfile,5120]', // 5MB dalam KB (5 * 1024)
+                    'min_dims[userfile,600,600]'
+                ],
+                'errors' => [
+                    'uploaded' => 'Silakan pilih file gambar untuk diunggah',
+                    'is_image' => 'File harus berupa gambar',
+                    'mime_in' => 'File harus berformat JPG, JPEG, PNG, atau WEBP',
+                    'max_size' => 'Ukuran file tidak boleh melebihi 5MB',
+                    'min_dims' => 'Dimensi image/file minimum 600x600'
+                ]
+            ]
+        ];
+
+        if ($this->isAllowedFileTypeImage($userfile)) {
+            if (!$this->validate($validationRulesImage)) {
+                return $this->validator->getErrors();
+            }
+        }
+
+        // $nowTime = new Time();
+        // $dateString = $nowTime->toDateString();
+        // $timeString = $nowTime->toTimeString();
+        // $dateStringWithoutSpecialChar = str_replace("-", "", $dateString);
+        // $timeStringWithoutSpecialChar = str_replace(":", "", $timeString);
+
+        $uploadPathOriginal_NW = 'uploads/original/';
+        $uploadPathMedium_NW = 'uploads/medium/';
+        $uploadPathThumbnail_NW = 'uploads/thumbnail/';
+
+        $uploadPathOriginal = WRITEPATH .  $uploadPathOriginal_NW;
+        $uploadPathMedium = WRITEPATH . $uploadPathMedium_NW;
+        $uploadPathThumbnail = WRITEPATH . $uploadPathThumbnail_NW;
+
+        if (!is_dir($uploadPathOriginal)) {
+            mkdir($uploadPathOriginal, 0777, true);
+        }
+        if (!is_dir($uploadPathMedium)) {
+            mkdir($uploadPathMedium, 0777, true);
+        }
+        if (!is_dir($uploadPathThumbnail)) {
+            mkdir($uploadPathThumbnail, 0777, true);
+        }
+
+        $uploadPathOriginal_ID = $uploadPathOriginal  . $product_id . '/';
+        $uploadPathMedium_ID = $uploadPathMedium . $product_id . '/';
+        $uploadPathThumbnail_ID = $uploadPathThumbnail . $product_id . '/';
+
+        if (!is_dir($uploadPathOriginal_ID)) {
+            mkdir($uploadPathOriginal_ID, 0777, true);
+        }
+        if (!is_dir($uploadPathMedium_ID)) {
+            mkdir($uploadPathMedium_ID, 0777, true);
+        }
+        if (!is_dir($uploadPathThumbnail_ID)) {
+            mkdir($uploadPathThumbnail_ID, 0777, true);
+        }
+
+        $image = service('image');
+
+
+        $imageFile = $image;
+        $newProductImage = new ProductImage();
+        $newProductImage->product_id = $product_id;
+
+        if ($flag == 'create') {
+            $newProductImage->is_primary = true;
+        } else {
+            $newProductImage->is_primary = false;
+        }
+
+        //save to thumbnail
+        $imageFile
+            ->withFile($userfile)
+            ->resize(150, 150, true)
+            ->save($uploadPathThumbnail_ID  . $newName);
+        $newProductImage->image_path = $uploadPathThumbnail_NW . $product_id . '/' .  $newName;
+        $this->modelProductImage->save($newProductImage);
+
+        //save to original
+        $imageFile->withFile($userfile);
+        $imageFile->text(
+            'Copyright 2025 Online Food Ordering System',
+            [
+                'color'     => '#fff',
+                'opacity'   => 0.5,
+                'withShadow'   => true,
+                'hAlign'    => 'center',
+                'vAlign'    => 'botton',
+                'fontSize'  => 12,
+            ]
+        );
+        $imageFile->quality(80);
+        $imageFile->save($uploadPathOriginal_ID . $newName);
+        $newProductImage->image_path = $uploadPathOriginal_NW . $product_id . '/' .  $newName;
+        $this->modelProductImage->save($newProductImage);
+
+        //save to medium
+        $imageFile
+            ->withFile($userfile)
+            ->text(
+                'Copyright 2025 Online Food Ordering System',
+                [
+                    'color'     => '#fff',
+                    'opacity'   => 0.5,
+                    'withShadow'   => true,
+                    'hAlign'    => 'center',
+                    'vAlign'    => 'botton',
+                    'fontSize'  => 12,
+                ]
+            )
+            ->resize(500, 500)
+            ->save($uploadPathMedium_ID . $newName);
+
+        $newProductImage->image_path = $uploadPathMedium_NW . $product_id . '/' . $newName;
+        $this->modelProductImage->save($newProductImage);
+    }
+
+    public function additionalProductPhoto()
+    {
+        $userfile = $this->request->getFile('userfile');
+        $product_id = $this->request->getPost('product_id');
+        $newName = $userfile->getName();
+
+        $this->uploadProductPhoto($product_id, $userfile, $newName, 'add');
+
+        session()->setFlashdata('success', 'Product berhasil disimpan');
+        return redirect()->to('/admin/product');
     }
 
     public function update()
@@ -204,5 +362,18 @@ class Product extends BaseController
                 'product' => $product,
             ]
         );
+    }
+
+    private function isAllowedFileTypeImage($file)
+    {
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+        $fileExtension = $file->getClientExtension(); // Get file extension
+
+        // If the file's extension is not in the allowed list
+        if (!in_array(strtolower($fileExtension), $allowedExtensions)) {
+            return false; // Not allowed
+        }
+
+        return true; // Allowed
     }
 }

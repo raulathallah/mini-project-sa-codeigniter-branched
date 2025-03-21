@@ -74,6 +74,8 @@ class Auth extends AuthController
 
     $email = $this->request->getPost('email');
 
+
+
     //$roleGroup = $this->request->getPost('role_group');
     $roleGroup = 'customer';
 
@@ -102,7 +104,7 @@ class Auth extends AuthController
         ->with('errors', $this->validator->getErrors())
         ->withInput();
     }
-    $this->accountModel->save($data);
+    $store = $this->accountModel->save($data);
 
     if ($user) {
       // Tambahkan ke group student
@@ -111,6 +113,7 @@ class Auth extends AuthController
         $this->groupModel->addUserToGroup($user->id, $studentGroup->id);
       }
     }
+
     return redirect()->route('login')->with('message', lang('Auth.activationSuccess'));
   }
 

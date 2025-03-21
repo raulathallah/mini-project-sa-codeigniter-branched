@@ -86,7 +86,30 @@ Product
     </div>
 
   </form>
-  <?= $content ?? '' ?>
+  <div class="d-flex flex-wrap gap-3">
+    <?php foreach ($products as $row): ?>
+      <div class="card" style="width: 20rem;">
+        <img src="<?= base_url('productImage/' . $row->id . '/' . $row->image_path) ?>"
+          alt="<?= esc($row->image_path) ?>" class="w-20 h-20">
+        <div class="card-body">
+          <h5 class="card-title"><?= $row->productName ?></h5>
+          <h6 class="card-subtitle mb-2 text-muted"><?= $row->getFormattedPrice() ?></h6>
+          <span class="badge bg-secondary my-2"><?= $row->categoryName ?></span>
+          <?php if ($row->is_sale == 't'): ?>
+            <span class="badge bg-danger my-2">On Sale!</span>
+          <?php endif; ?>
+          <?php if ($row->is_new == 't'): ?>
+            <span class="badge bg-success my-2">New!</span>
+          <?php endif; ?>
+          <!-- STOCK -->
+          <h6 class="mb-2">Stock : <?= $row->stock ?></h6>
+          <p class="mb-2 text-muted" style="text-align: justify;"><?= $row->created_at_format ?></p>
+          <p class="mb-2" style="text-align: justify;"><?= $row->description ?></p>
+        </div>
+
+      </div>
+    <?php endforeach; ?>
+  </div>
 </div>
 
 

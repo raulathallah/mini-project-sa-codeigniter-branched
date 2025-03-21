@@ -16,8 +16,11 @@ use CodeIgniter\Router\RouteCollection;
 //$routes->get('/', [Home::class, 'login']);
 $routes->get('/', [Home::class, 'index']);
 
+
 $routes->get('product', [Product::class, 'index']);
-$routes->post('upload/upload', [Home::class, 'upload']);
+
+
+
 
 $routes->group('', ['namespace' => 'App\Controllers'], function ($routes) {
   $routes->get('register', 'Auth::register', ['as' => 'register']);
@@ -29,6 +32,7 @@ $routes->group('', ['namespace' => 'App\Controllers'], function ($routes) {
   $routes->get('logout', 'Auth::logout');
 });
 
+$routes->get('productImage/(:num)/(:segment)', [Product::class, 'productImage']);
 $routes->get('profile', [User::class, 'userProfile']);
 
 
@@ -43,7 +47,9 @@ $routes->group('admin/product', [
   $routes->get('delete/(:num)', [AdminProduct::class, 'delete']);
   $routes->get('detail/(:num)', [AdminProduct::class, 'detail']);
   $routes->get('add_photo/(:num)', [AdminProduct::class, 'addPhoto']);
+  $routes->post('additional_photo', [AdminProduct::class, 'additionalProductPhoto']);
 });
+
 
 $routes->group('admin/user', [
   'filter' => 'role:administrator',

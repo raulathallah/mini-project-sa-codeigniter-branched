@@ -132,11 +132,13 @@ class ProductModel extends Model
             product_images.image_path,
             product_images.is_primary,
             ')
-            ->where('product_images.is_primary', true)
+            ->where('is_primary', true)
             ->join('categories', 'products.category_id = categories.category_id')
-            ->join('product_images', 'product_images.product_id = products.product_id');
+            ->join('product_images', 'product_images.product_id = products.product_id')
+            ->like('product_images.image_path', 'thumbnail');
 
-        if (!empty($params->search)) { // Apply search
+
+        if (!empty($params->search)) {
             $joined
                 ->groupStart()
                 ->like('products.product_id::text', '%' . $params->search . '%', 'both', null, true)

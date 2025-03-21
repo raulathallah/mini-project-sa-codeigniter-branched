@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Controllers\BaseController;
 use App\Libraries\DataParams;
 use App\Models\CategoryModel;
+use App\Models\ProductImageModel;
 use App\Models\ProductModel;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\I18n\Time;
@@ -14,6 +15,7 @@ class Product extends BaseController
 {
     protected $modelProduct;
     protected $modelCategory;
+    protected $modelProductImage;
     private $db;
 
     public function __construct()
@@ -23,6 +25,7 @@ class Product extends BaseController
 
         $this->modelProduct = new ProductModel();
         $this->modelCategory = new CategoryModel();
+        $this->modelProductImage = new ProductImageModel();
     }
 
     public function index()
@@ -44,9 +47,9 @@ class Product extends BaseController
             $row->created_at_format = $row->created_at->humanize();
         }
 
-        $pageData = [
-            'products' => $result['products']
-        ];
+        // $pageData = [
+        //     'products' => $result['products']
+        // ];
 
         $data = [
             'pager' => $result['pager'],
@@ -55,10 +58,21 @@ class Product extends BaseController
             'price_range' => $this->modelProduct->getPriceRange(),
             'categories' => $this->modelProduct->getAllCategories(),
             'baseUrl' => base_url('product'),
-            'content' => $parser->setData($pageData)->render('parser/product/product_list')
+            'products' => $result['products'],
+            //'content' => $parser->setData($pageData)->render('parser/product/product_list')
         ];
 
         //, ['cache' => HOUR, 'cache_name' => 'cache_product_catalog']
         return view('section_public/product_list', $data);
+    }
+
+    public function productImage($id, $filename)
+    {
+        $filePath = WRITEPATH . $filename;
+        if (file_exists($filePath)) {
+            return $this->response->setContentType(mime_content_type($filePath))->setBody(file_get_contents($filePath));
+        } else {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound();
+        }
     }
 }
