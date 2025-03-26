@@ -13,3 +13,7 @@
     </div>
 </div>
 <?= $this->endSection() ?>
+
+<?= $this->section('scripts') ?>
+<?= $this->renderSection('admin_scripts') ?>
+<?= $this->endSection() ?>

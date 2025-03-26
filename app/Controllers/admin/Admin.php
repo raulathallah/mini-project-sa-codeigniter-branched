@@ -10,6 +10,12 @@ use App\Models\UserModel;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\I18n\Time;
 
+use TCPDF;
+
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use \PhpOffice\PhpSpreadsheet\Style\Alignment as Alignment;
+
 class Admin extends BaseController
 {
     protected $helpers = ['date'];
@@ -43,9 +49,126 @@ class Admin extends BaseController
             'product_statistics_cell' => view_cell('ProductStatisticsCell', [], HOUR, 'cache_product_statistics'),
         ];
 
-        $data['content'] = $parser->setData($pageData)->render('parser/admin/dashboard_statistics');
+        $productByCategory = $this->getProductByCategory();
+        $mostProductByCategory = $this->getMostProductByCategory();
+        $productGrowth = $this->getProductGrowth();
+        $currentYear = date('Y');
+
+        $data = [
+            'productByCategory' => json_encode($productByCategory),
+            'mostProductByCategory' => json_encode($mostProductByCategory),
+            'productGrowth' => json_encode($productGrowth),
+            'currentYear' => $currentYear
+        ];
+
+        //$data['content'] = $parser->setData($pageData)->render('parser/admin/dashboard_statistics');
         return view('section_admin/dashboard', $data);
     }
+
+    private function getProductByCategory()
+    {
+        $productByCategory = $this->modelProduct->getAllProductsByCategory();
+
+        $backgroundColors = [
+            'Food' => 'rgb(255, 205, 86)',
+            'Beverage' => 'rgb(75, 192, 192)',
+            'Snacks' => 'rgb(153, 102, 255)',
+            'Special' => 'rgb(54, 162, 235)',
+            'Juice' => 'rgb(255, 159, 64)',
+            'Package' => 'rgb(255, 99, 132)'
+        ];
+
+
+        foreach ($productByCategory as $row) {
+            $gradeLabels[] = $row['name'] . '=' . $row['totalProducts'];
+            $productCounts[] = (int)$row['totalProducts'];
+            $colors[] = $backgroundColors[$row['name']];
+        }
+
+        $result = [
+
+            'labels' => $gradeLabels,
+            'datasets' => [
+                [
+                    'label' => 'Product by Category',
+                    'data' => $productCounts,
+                    'backgroundColor' => $colors,
+                    'hoverOffset' => 4
+                ]
+
+            ]
+
+        ];
+
+
+        return $result;
+    }
+
+    private function getMostProductByCategory()
+    {
+        $mostProductByCategory = $this->modelProduct->getMostProductByCategory();
+
+        foreach ($mostProductByCategory as $row) {
+            $labels[] = $row['name'] . ' (' . $row['totalProducts'] . ')';
+            $totalProducts[] = (int)$row['totalProducts'];
+        }
+        $result = [
+            'labels' => $labels,
+            'datasets' => [
+                [
+                    'label' => 'Total Products',
+                    'data' => $totalProducts,
+                    'backgroundColor' => 'rgba(54, 162, 235, 0.5)',
+                    'borderColor' => 'rgb(54, 162, 235)',
+                    'borderWidth' => 1
+                ],
+            ]
+        ];
+
+        return $result;
+    }
+
+    private function getProductGrowth()
+    {
+        $productGrowth = $this->modelProduct->getProductGrowth();
+
+        // $defaultGpaData = [
+        //     ['semester' => 1, 'semester_gpa' => 0],
+        //     ['semester' => 2, 'semester_gpa' => 0],
+        //     ['semester' => 3, 'semester_gpa' => 0],
+        //     ['semester' => 4, 'semester_gpa' => 0],
+        //     ['semester' => 5, 'semester_gpa' => 0],
+        //     ['semester' => 6, 'semester_gpa' => 0],
+        //     ['semester' => 7, 'semester_gpa' => 0],
+        //     ['semester' => 8, 'semester_gpa' => 0],
+        // ];
+
+        // foreach ($getGpa as $row) {
+        //     $defaultGpaData[$row->semester - 1]['semester_gpa'] = $row->semester_gpa;
+        // }
+
+
+        foreach ($productGrowth as $row) {
+            $months[] = 'Months ' . $row['createdmonth'];
+            $totalProducts[] = (int)$row['totalproducts'];
+        }
+
+        $result = [
+            'labels' => $months,
+            'datasets' => [
+                [
+                    'label' => 'Total Products',
+                    'data' => $totalProducts,
+                    'borderColor' => 'rgba(75, 192, 192, 1)',
+                    'tension' => 0.1,
+                    'fill' => false
+                ]
+            ]
+        ];
+
+        return $result;
+    }
+
 
     public function getUsers()
     {
@@ -73,5 +196,199 @@ class Admin extends BaseController
 
         return view('section_admin/user_list', $data);
         //, 'cache' => MINUTE * 15, 'cache_name' => 'cache_user_list'
+    }
+
+    public function allUserForm()
+    {
+        $data = [
+            'title' => 'User PDF Report',
+        ];
+        return view('reports/user', $data);
+    }
+
+    public function productByCategoryForm()
+    {
+        $params = $this->request->getVar('categories');
+        $categories = $this->modelProduct->getAllCategories();
+        $products = $this->modelProduct->getProductsByCategoryName($params);
+        $data = [
+            'products' => $products,
+            'categories' => $categories,
+            'title' => 'User PDF Report',
+            'params' => $params ?? '',
+        ];
+
+        return view('reports/product', $data);
+    }
+
+    public function productByCategoryExcel()
+    {
+        $params = $this->request->getVar('params');
+
+        $products = $this->modelProduct->getProductsByCategoryName($params);
+
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('A1', 'PRODUCT REPORTS BY CATEGORIES');
+        $sheet->mergeCells('A1:J1');
+
+        $sheet->getStyle('A1')->getFont()->setBold(true);
+
+        $sheet->getStyle('A1')->getFont()->setSize(14);
+
+        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+
+        $sheet->setCellValue('A3', 'Filter:');
+
+        $sheet->setCellValue('B3', 'Categories: ' . ($params ?? 'Semua'));
+
+        $sheet->getStyle('A3:D3')->getFont()->setBold(true);
+        $headers = [
+            'A5' => 'NO',
+            'B5' => 'PRODUCT NAME',
+            'C5' => 'CATEGORY',
+            'D5' => 'PRICE',
+            'E5' => 'STOCK',
+            'F5' => 'CREATED AT',
+        ];
+
+        foreach ($headers as $cell => $value) {
+            $sheet->setCellValue($cell, $value);
+            $sheet->getStyle($cell)->getFont()->setBold(true);
+            $sheet->getStyle($cell)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+        }
+
+        $row = 6;
+        $no = 1;
+
+        foreach ($products as $product) {
+            $sheet->setCellValue('A' . $row, $no);
+            $sheet->setCellValue('B' . $row, $product->productName);
+            $sheet->setCellValue('C' . $row, $product->categoryName);
+            $sheet->setCellValue('D' . $row, $product->price);
+            $sheet->setCellValue('E' . $row, $product->stock);
+            $sheet->setCellValue('F' . $row, $product->created_at);
+            $row =  $row + 1;
+            $no = $no + 1;
+        }
+
+        foreach (range('A', 'J') as $column) {
+
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        // Buat border untuk seluruh tabel
+
+        $styleArray = [
+
+            'borders' => [
+
+                'allBorders' => [
+
+                    'borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN,
+
+                ],
+
+            ],
+
+        ];
+
+        $sheet->getStyle('A5:J' . ($row - 1))->applyFromArray($styleArray);
+
+        $filename = 'Product_Report_by_Category_' . date('Y-m-d-His') . '.xlsx';
+
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        header('Content-Disposition: attachment;filename="' . $filename . '"');
+
+        header('Cache-Control: max-age=0');
+
+        $writer = new Xlsx($spreadsheet);
+
+        $writer->save('php://output');
+
+        exit();
+    }
+
+    public function allUserPdf()
+    {
+        $result = $this->modelUser->findAll();
+
+        // Generate PDF
+        $pdf = $this->initTcpdf();
+        $this->generatePdfHtmlContent($pdf, $result);
+        // Output PDF
+        $filename = 'user_report_' . date('Y-m-d') . '.pdf';
+        $pdf->Output($filename, 'I');
+        exit;
+    }
+
+    private function initTcpdf()
+    {
+        $pdf = new TCPDF('L', 'mm', 'A4', true, 'UTF-8', false);
+        $pdf->SetCreator('CodeIgniter 4');
+        $pdf->SetAuthor('Administrator');
+        $pdf->SetTitle('User Report');
+        $pdf->SetSubject('User Report');
+        $pdf->SetHeaderData('', 0, 'Online Food Order System', '', [0, 0, 0], [0, 64, 128]);
+        $pdf->setFooterData([0, 64, 0], [0, 64, 128]);
+        $pdf->setHeaderFont(['helvetica', '', 12]);
+        $pdf->setFooterFont(['helvetica', '', 8]);
+        $pdf->SetMargins(15, 20, 15);
+        $pdf->SetHeaderMargin(5);
+        $pdf->SetFooterMargin(10);
+        $pdf->SetAutoPageBreak(true, 25);
+        $pdf->SetFont('helvetica', '', 10);
+        $pdf->AddPage();
+        return $pdf;
+    }
+
+    public function generatePdfHtmlContent($pdf, $students)
+    {
+        // Set title and filters info
+        $title = 'All User from Online Food Order System';
+
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->SetFillColor(220, 220, 220);
+        $html = '<h2 style="text-align:center;">' . $title . '</h2>
+        <p style="margin-top:30px; text-align:right;">           
+         Total User: ' . count($students) . ' 
+        </p>
+         <table border="1" cellpadding="5" cellspacing="0" style="width:100%;">
+           <thead>
+           <tr style="background-color:#CCCCCC; font-weight:bold; text-align:center;">
+                       <th>No</th>
+                       <th>Account ID</th>
+                       <th>Full Name</th>
+                       <th>Email</th>
+                       <th>Role</th>
+                       <th>Status</th>
+                       <th>Registration Date</th>
+                   </tr>
+               </thead>
+               <tbody>';
+
+        $no = 1;
+        foreach ($students as $student) {
+            $html .= '
+           <tr>
+            <td style="text-align:center;">' . $no . '</td>
+            <td style="text-align:center;">' . $student->account_id . '</td>
+            <td>' . $student->full_name . '</td>
+            <td>' . $student->email . '</td>
+            <td style="text-align:center;">' . $student->role . '</td>
+            <td style="text-align:center;">' . $student->status . '</td>
+            <td style="text-align:center;">' . $student->created_at . '</td>
+           </tr>';
+            $no++;
+        }
+        $html .= '
+         </tbody>
+     </table>
+    
+     ';
+        // Write HTML to PDF
+        $pdf->writeHTML($html, true, false, true, false, '');
     }
 }

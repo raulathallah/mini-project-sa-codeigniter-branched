@@ -19,9 +19,6 @@ $routes->get('/', [Home::class, 'index']);
 
 $routes->get('product', [Product::class, 'index']);
 
-
-
-
 $routes->group('', ['namespace' => 'App\Controllers'], function ($routes) {
   $routes->get('register', 'Auth::register', ['as' => 'register']);
   $routes->post('register', 'Auth::attemptRegister');
@@ -76,6 +73,19 @@ $routes->group('admin/role', [
   $routes->get('delete/(:num)', [Role::class, 'delete']);
 });
 
+$routes->group('admin/reports', [
+  'filter' => 'role:administrator',
+], function ($routes) {
+  $routes->get('user-report', [Admin::class, 'allUserForm']);
+  $routes->post('user-pdf', [Admin::class, 'allUserPdf']);
+});
+
+$routes->group('admin/reports', [
+  'filter' => 'role:product_manager',
+], function ($routes) {
+  $routes->get('product-report', [Admin::class, 'productByCategoryForm']);
+  $routes->get('product-excel', [Admin::class, 'productByCategoryExcel']);
+});
 
 $routes->group('admin', ['filter' => 'role:product_manager,administrator', 'namespace' => 'App\Controllers\Admin'], function ($routes) {
   //$routes->get('dashboard', [Dashboard::class, 'index'], ['filter'=>\App\Filters\AuthFilter::class]);  

@@ -11,7 +11,7 @@
   <!-- Option 1: Include in HTML -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
   <script src="<?= base_url('assets/js/pristine.js') ?>"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <title><?= $this->renderSection('title') ?></title>
 
   <style>

@@ -1,4 +1,4 @@
-<div class="mh-100" style="width: 10%;">
+<div class="mh-100" style="width: 15%;">
   <ul class="list-group list-group-flush">
     <li class="list-group-item text-center">
       <h6>Menus</h6>
@@ -9,6 +9,7 @@
       <li class="list-group-item"><a class="btn custom-secondary btn-sm w-100" href="/admin/user">Users</a></li>
       <li class="list-group-item"><a class="btn custom-secondary btn-sm w-100" href="/admin/product">Products</a></li>
       <li class="list-group-item"><a class="btn custom-secondary btn-sm w-100" href="/admin/role">Roles</a></li>
+      <li class="list-group-item"><a class="btn custom-secondary btn-sm w-100" href="/admin/reports/user-report">User PDF Report</a></li>
     <?php endif; ?>
 
     <?php if (!in_groups('administrator')): ?>
@@ -17,6 +18,10 @@
 
     <?php if (in_groups('product_manager')): ?>
       <li class="list-group-item"><a class="btn custom-secondary btn-sm w-100" href="/admin/product">Products</a></li>
+      <li class="list-group-item"><a class="btn custom-secondary btn-sm w-100" href="/admin/reports/product-report">Product Excel Report</a></li>
     <?php endif; ?>
+
+
+
   </ul>
 </div>

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Libraries\DataParams;
+use CodeIgniter\Database\Query;
 use CodeIgniter\Model;
 
 class ProductModel extends Model
@@ -108,6 +109,85 @@ class ProductModel extends Model
     public function getProductsByCategory($category_id)
     {
         return $this->where('category_id', $category_id);
+    }
+
+    public function getProductsByCategoryName($category_name = '')
+    {
+        $join = $this->select('
+        categories.name as categoryName, 
+        products.name as productName, 
+        products.price,
+        products.stock,
+        products.created_at 
+        ')
+            ->join('categories', 'categories.category_id = products.category_id');
+
+        if (isset($category_name)) {
+            $this->like('categories.name', $category_name, 'both', null, true);
+        }
+
+        return $join->findAll();
+    }
+
+
+    public function getAllProductsByCategory()
+    {
+        $query = $this
+            ->select('categories.name, count(products.name)')
+            ->join('categories', 'categories.category_id = products.category_id')
+            ->groupBy('categories.name')
+            ->findAll();
+
+        $grouped = [];
+
+        foreach ($query as $row) {
+            array_push($grouped, ['name' => $row->name, 'totalProducts' => $row->count]);
+        }
+
+        return $grouped;
+    }
+
+    public function getMostProductByCategory()
+    {
+        $query = $this
+            ->select('categories.name, count(products.name)')
+            ->join('categories', 'categories.category_id = products.category_id')
+            ->groupBy('categories.name')
+            ->orderBy('count', 'DESC')
+            ->limit(5)
+            ->findAll();
+
+        $grouped = [];
+
+        foreach ($query as $row) {
+            array_push($grouped, ['name' => $row->name, 'totalProducts' => $row->count]);
+        }
+
+        return $grouped;
+    }
+
+    public function getProductGrowth()
+    {
+        //EXTRACT(YEAR FROM created_at) AS createdYear,
+        //GROUP BY 
+        //  createdYear, createdMonth
+        //ORDER BY 
+        //  createdYear, createdMonth
+
+        $query = $this->db->query('
+        SELECT 
+            EXTRACT(MONTH FROM created_at) AS createdMonth,
+            COUNT(*) AS totalProducts
+        FROM 
+            products
+        WHERE 
+            EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)
+        GROUP BY 
+            createdMonth
+        ORDER BY 
+           createdMonth');
+
+        return $query->getResultArray();
     }
 
     public function countTotalProducts()
