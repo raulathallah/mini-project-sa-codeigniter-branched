@@ -132,25 +132,78 @@ class Admin extends BaseController
     {
         $productGrowth = $this->modelProduct->getProductGrowth();
 
-        // $defaultGpaData = [
-        //     ['semester' => 1, 'semester_gpa' => 0],
-        //     ['semester' => 2, 'semester_gpa' => 0],
-        //     ['semester' => 3, 'semester_gpa' => 0],
-        //     ['semester' => 4, 'semester_gpa' => 0],
-        //     ['semester' => 5, 'semester_gpa' => 0],
-        //     ['semester' => 6, 'semester_gpa' => 0],
-        //     ['semester' => 7, 'semester_gpa' => 0],
-        //     ['semester' => 8, 'semester_gpa' => 0],
-        // ];
+        $monthsName = [
+            [
+                'id' => 1,
+                'name' => 'January'
+            ],
+            [
+                'id' => 2,
+                'name' => 'February'
+            ],
+            [
+                'id' => 3,
+                'name' => 'March'
+            ],
+            [
+                'id' => 4,
+                'name' => 'April'
+            ],
+            [
+                'id' => 5,
+                'name' => 'May'
+            ],
+            [
+                'id' => 6,
+                'name' => 'June'
+            ],
+            [
+                'id' => 7,
+                'name' => 'July'
+            ],
+            [
+                'id' => 8,
+                'name' => 'August'
+            ],
+            [
+                'id' => 9,
+                'name' => 'September'
+            ],
+            [
+                'id' => 10,
+                'name' => 'October'
+            ],
+            [
+                'id' => 11,
+                'name' => 'November'
+            ],
+            [
+                'id' => 12,
+                'name' => 'December'
+            ]
+        ];
 
-        // foreach ($getGpa as $row) {
-        //     $defaultGpaData[$row->semester - 1]['semester_gpa'] = $row->semester_gpa;
-        // }
+        $defaultProductGrowth = [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+        ];
 
+        foreach ($monthsName as $row) {
+            $months[] = $row['name'];
+        }
 
-        foreach ($productGrowth as $row) {
-            $months[] = 'Months ' . $row['createdmonth'];
-            $totalProducts[] = (int)$row['totalproducts'];
+        foreach ($productGrowth as $index => $row) {
+            $defaultProductGrowth[$index] = (int)$row['totalproducts'];
         }
 
         $result = [
@@ -158,7 +211,7 @@ class Admin extends BaseController
             'datasets' => [
                 [
                     'label' => 'Total Products',
-                    'data' => $totalProducts,
+                    'data' => $defaultProductGrowth,
                     'borderColor' => 'rgba(75, 192, 192, 1)',
                     'tension' => 0.1,
                     'fill' => false
@@ -231,7 +284,7 @@ class Admin extends BaseController
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setCellValue('A1', 'PRODUCT REPORTS BY CATEGORIES');
-        $sheet->mergeCells('A1:J1');
+        $sheet->mergeCells('A1:F1');
 
         $sheet->getStyle('A1')->getFont()->setBold(true);
 
@@ -269,11 +322,13 @@ class Admin extends BaseController
             $sheet->setCellValue('D' . $row, $product->price);
             $sheet->setCellValue('E' . $row, $product->stock);
             $sheet->setCellValue('F' . $row, $product->created_at);
+
+            $sheet->getStyle('D' . $row)->getNumberFormat()->setFormatCode('"Rp"#,##0.00');
+
             $row =  $row + 1;
             $no = $no + 1;
         }
-
-        foreach (range('A', 'J') as $column) {
+        foreach (range('A', 'F') as $column) {
 
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
@@ -294,7 +349,7 @@ class Admin extends BaseController
 
         ];
 
-        $sheet->getStyle('A5:J' . ($row - 1))->applyFromArray($styleArray);
+        $sheet->getStyle('A5:F' . ($row - 1))->applyFromArray($styleArray);
 
         $filename = 'Product_Report_by_Category_' . date('Y-m-d-His') . '.xlsx';
 
